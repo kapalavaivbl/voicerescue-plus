@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceRescue+ — Voice-Guided First Aid</title>
+<!--
+  VoiceRescue+ — built for the Congressional App Challenge.
+  A voice-guided first-aid app for choking and heart attack.
+  HOW IT WORKS: one HTML file. The screens are <section> blocks below.
+  JavaScript shows one screen at a time. The step text lives in FLOWS
+  at the bottom of the file — edit the words there to change the app.
+  Safety: the app always tells the user to call 911 first. It does not
+  replace emergency help.
+-->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; color: #222; }
+  header { background: #fff; padding: 14px 16px 10px; text-align: center; border-bottom: 3px solid #2e7d32; }
+  .logo { width: 56px; height: 56px; background: #2e7d32; border-radius: 12px; margin: 0 auto 6px; position: relative; }
+  .logo::before, .logo::after { content: ""; position: absolute; background: #fff; }
+  .logo::before { left: 50%; top: 14px; width: 10px; height: 28px; transform: translateX(-50%); }
+  .logo::after { top: 50%; left: 14px; height: 10px; width: 28px; transform: translateY(-50%); }
+  h1 { margin: 4px 0 2px; font-size: 30px; }
+  .tagline { margin: 0 0 4px; color: #555; font-size: 15px; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 110px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  h2 { font-size: 22px; margin: 6px 0 12px; }
+  .btn { display: block; width: 100%; padding: 18px 12px; margin: 10px 0; font-size: 20px; font-weight: 700; border: none; border-radius: 14px; cursor: pointer; color: #fff; }
+  .btn-choking { background: #d32f2f; }
+  .btn-heart { background: #e65100; }
+  .btn-practice { background: #1565c0; }
+  .btn-age { background: #fff; color: #222; border: 2px solid #1565c0; }
+  .btn-next { background: #2e7d32; }
+  .btn-back { background: #9e9e9e; }
+  .btn-secondary { background: #fff; color: #222; border: 2px solid #757575; }
+  .step-card { background: #fff; border-radius: 14px; padding: 22px 18px; font-size: 22px; line-height: 1.45; min-height: 180px; }
+  .step-num { color: #2e7d32; font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .dots { text-align: center; margin: 12px 0; font-size: 22px; letter-spacing: 4px; color: #bbb; }
+  .dots .on { color: #2e7d32; }
+  .note { background: #fff3e0; border-left: 5px solid #e65100; padding: 12px; border-radius: 8px; font-size: 15px; }
+  .disclaimer { font-size: 13px; color: #666; text-align: center; margin-top: 20px; }
+  .practice-banner { background: #e3f2fd; border: 2px solid #1565c0; color: #0d47a1; padding: 10px; border-radius: 10px; text-align: center; font-weight: 700; margin-bottom: 12px; }
+  .emergency-bar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 2px solid #d32f2f; padding: 10px 12px; display: flex; gap: 10px; }
+  .emergency-bar a { flex: 1; text-align: center; background: #d32f2f; color: #fff; text-decoration: none; font-size: 20px; font-weight: 700; padding: 14px 0; border-radius: 12px; }
+  .emergency-bar button { flex: 0 0 auto; padding: 14px 16px; font-size: 18px; border-radius: 12px; border: 2px solid #757575; background: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"></div>
+  <h1>VoiceRescue+</h1>
+  <p class="tagline">Voice-guided first aid. In a real emergency, call 911 first.</p>
+</header>
+
+<main>
+  <!-- HOME SCREEN -->
+  <section id="home" class="screen active">
+    <h2>What is the emergency?</h2>
+    <button class="btn btn-choking" onclick="showScreen('age')">CHOKING</button>
+    <button class="btn btn-heart" onclick="startFlow('heart', false)">HEART ATTACK</button>
+    <button class="btn btn-practice" onclick="showScreen('practice')">Practice Mode</button>
+    <div class="note">Tap CHOKING or HEART ATTACK and the app will talk you through the steps, one at a time, while help is on the way.</div>
+    <p class="disclaimer">VoiceRescue+ does not replace emergency help. Always call 911 first.</p>
+  </section>
+
+  <!-- AGE SELECTOR (choking only) -->
+  <section id="age" class="screen">
+    <h2>Who is choking?</h2>
+    <button class="btn btn-age" onclick="startFlow('chokingAdult', false)">Adult / Child</button>
+    <button class="btn btn-age" onclick="startFlow('chokingBaby', false)">Baby (under 1 year)</button>
+    <button class="btn btn-secondary" onclick="goHome()">Back to Home</button>
+  </section>
+
+  <!-- GUIDED STEPS SCREEN (used by every flow) -->
+  <section id="guide" class="screen">
+    <div id="practiceBanner" class="practice-banner" style="display:none;">Practice Mode — learning, not an emergency</div>
+    <h2 id="flowTitle"></h2>
+    <div class="step-card">
+      <div class="step-num" id="stepNum"></div>
+      <div id="stepText"></div>
+    </div>
+    <div class="dots" id="dots"></div>
+    <button class="btn btn-secondary" onclick="speakCurrent()">Hear This Step Again</button>
+    <button class="btn btn-next" id="nextBtn" onclick="nextStep()">Next Step</button>
+    <button class="btn btn-back" onclick="backStep()">Back</button>
+  </section>
+
+  <!-- PRACTICE MODE SCREEN -->
+  <section id="practice" class="screen">
+    <h2>Practice Mode</h2>
+    <p>Learn the steps calmly, before an emergency happens.</p>
+    <button class="btn btn-choking" onclick="startFlow('chokingAdult', true)">Choking — Adult / Child</button>
+    <button class="btn btn-choking" onclick="startFlow('chokingBaby', true)">Choking — Baby</button>
+    <button class="btn btn-heart" onclick="startFlow('heart', true)">Heart Attack</button>
+    <button class="btn btn-secondary" onclick="goHome()">Back to Home</button>
+  </section>
+</main>
+
+<!-- ALWAYS-VISIBLE EMERGENCY BAR -->
+<div class="emergency-bar">
+  <a href="tel:911">CALL 911</a>
+  <button id="soundBtn" onclick="toggleVoice()">Sound: ON</button>
+</div>
+
+<script>
+// ------------------------------------------------------------------
+// STEP CONTENT — edit the words here to change what the app says.
+// Each flow is a list of short steps. The app reads each step aloud.
+// Steps follow Red Cross first-aid guidance.
+// ------------------------------------------------------------------
+var FLOWS = {
+  chokingAdult: {
+    title: "Choking — Adult / Child",
+    steps: [
+      "Call 911 now. Tap the red Call 911 button, or shout for someone to call.",
+      "Can they cough or speak? If yes, encourage them to keep coughing. Stay with them.",
+      "If they cannot cough, speak, or breathe, stand behind them and lean them slightly forward.",
+      "Give 5 back blows, hard, between the shoulder blades.",
+      "Give 5 abdominal thrusts. Make a fist above the belly button. Pull quickly inward and upward.",
+      "Repeat: 5 back blows, then 5 abdominal thrusts, until the object comes out.",
+      "If the person passes out, call 911 and start CPR. Push hard and fast in the center of the chest.",
+      "Stay with them until emergency help arrives."
+    ]
+  },
+  chokingBaby: {
+    title: "Choking — Baby (under 1 year)",
+    steps: [
+      "Call 911 now. Tap the red Call 911 button, or shout for someone to call.",
+      "Hold the baby face-down on your forearm. Keep the head lower than the chest. Support the head and jaw.",
+      "Give 5 back blows between the baby's shoulder blades.",
+      "Turn the baby over. Give 5 chest thrusts with two fingers on the center of the chest.",
+      "Repeat: 5 back blows, then 5 chest thrusts, until the object comes out.",
+      "If the baby goes limp or stops breathing, call 911 and start CPR.",
+      "Stay with the baby until emergency help arrives."
+    ]
+  },
+  heart: {
+    title: "Heart Attack",
+    steps: [
+      "Signs of a heart attack: chest pain or pressure, pain in the arm, jaw, neck, or back, shortness of breath, cold sweat, nausea, lightheadedness.",
+      "Call 911 immediately. Do not wait to see if it passes. Do not drive them yourself.",
+      "Have the person sit or lie down and rest. Stop all activity. Loosen tight clothing.",
+      "Aspirin: only if the 911 dispatcher advises it, and the person is not allergic to aspirin and has no bleeding problem. Chew one 325 milligram aspirin, or four 81 milligram baby aspirin.",
+      "If they have prescribed heart medicine, called nitroglycerin, help them take it as directed.",
+      "Watch their breathing. If they become unresponsive and are not breathing normally, call 911 and start CPR. Push hard and fast in the center of the chest. Use an AED if one is nearby.",
+      "Stay with them until emergency help arrives."
+    ]
+  }
+};
+
+// ------------------------------------------------------------------
+// APP STATE + NAVIGATION
+// ------------------------------------------------------------------
+var currentFlow = null;   // which flow is running, e.g. "heart"
+var currentStep = 0;      // which step number we are on
+var practiceMode = false; // true when running from Practice Mode
+var voiceOn = true;       // speaker toggle
+
+function showScreen(id) {
+  var screens = document.querySelectorAll(".screen");
+  for (var i = 0; i < screens.length; i++) {
+    screens[i].classList.remove("active");
+  }
+  document.getElementById(id).classList.add("active");
+  stopVoice();
+}
+
+function goHome() {
+  currentFlow = null;
+  showScreen("home");
+}
+
+function startFlow(flowKey, practice) {
+  currentFlow = flowKey;
+  currentStep = 0;
+  practiceMode = practice;
+  document.getElementById("practiceBanner").style.display = practice ? "block" : "none";
+  document.getElementById("flowTitle").textContent = FLOWS[flowKey].title;
+  showScreen("guide");
+  renderStep();
+}
+
+function renderStep() {
+  var steps = FLOWS[currentFlow].steps;
+  document.getElementById("stepNum").textContent =
+    "Step " + (currentStep + 1) + " of " + steps.length;
+  document.getElementById("stepText").textContent = steps[currentStep];
+  // Progress dots: filled dot for steps done, empty for steps left
+  var dots = "";
+  for (var i = 0; i < steps.length; i++) {
+    dots += (i <= currentStep) ? '<span class="on">●</span>' : '<span>○</span>';
+  }
+  document.getElementById("dots").innerHTML = dots;
+  // Last step: the Next button becomes Done
+  document.getElementById("nextBtn").textContent =
+    (currentStep === steps.length - 1) ? "Done — Back to Home" : "Next Step";
+  speak(steps[currentStep]);
+}
+
+function nextStep() {
+  var steps = FLOWS[currentFlow].steps;
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    renderStep();
+  } else {
+    goHome();
+  }
+}
+
+function backStep() {
+  if (currentStep > 0) {
+    currentStep--;
+    renderStep();
+  } else {
+    // Back from the first step returns to the flow's starting screen
+    if (currentFlow === "chokingAdult" || currentFlow === "chokingBaby") {
+      showScreen(practiceMode ? "practice" : "age");
+    } else {
+      showScreen(practiceMode ? "practice" : "home");
+    }
+  }
+}
+
+// ------------------------------------------------------------------
+// VOICE — uses the browser's built-in text-to-speech.
+// ------------------------------------------------------------------
+function speak(text) {
+  if (!voiceOn) return;
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+    var voice = new SpeechSynthesisUtterance(text);
+    voice.rate = 0.95;
+    window.speechSynthesis.speak(voice);
+  }
+}
+
+function stopVoice() {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+function speakCurrent() {
+  if (currentFlow) {
+    speak(FLOWS[currentFlow].steps[currentStep]);
+  }
+}
+
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  document.getElementById("soundBtn").textContent = voiceOn ? "Sound: ON" : "Sound: OFF";
+  if (!voiceOn) {
+    stopVoice();
+  } else {
+    speakCurrent();
+  }
+}
+</script>
+</body>
+</html>
